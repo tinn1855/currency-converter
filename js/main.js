@@ -76,20 +76,29 @@ function getPageData() {
 }
 
 const searchCurrency = debounce((keyword) => {
-  if (!keyword.trim()) {
+  const searchTerm = keyword.trim().toLowerCase();
+  if (!searchTerm) {
     filteredCurrency = {};
   } else {
     filteredCurrency = Object.fromEntries(
       Object.entries(currencyRate).filter(([code]) => {
         const name = CURRENCY_NAME[code] || "";
         return (
-          code.toLowerCase().includes(keyword.toLowerCase()) ||
-          name.toLowerCase().includes(keyword.toLowerCase())
+          code.toLowerCase().includes(searchTerm) ||
+          name.toLowerCase().includes(searchTerm)
         );
       })
     );
   }
-  currentPage = 1; // Reset to first page on search
+
+  if (Object.keys(filteredCurrency).length === 0) {
+    tableBody.innerHTML = "<tr><td colspan='6'>No results found</td></tr>";
+    convertedResult.innerHTML = "";
+    document.getElementById("pagination").innerHTML = "";
+    return;
+  }
+
+  currentPage = 1;
   renderCurrencyTable();
   renderPagination();
 }, 300);
