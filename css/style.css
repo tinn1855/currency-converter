@@ -97,10 +97,14 @@ label {
   background-color: var(--primary-color);
   color: var(--light-gray);
   transition: all 0.3s ease-in-out;
+  cursor: pointer;
 }
 .btn-swap:hover {
   transform: rotate(180deg);
   background-color: var(--secondary-color);
+}
+.btn-swap:active {
+  transform: rotate(180deg) scale(0.95);
 }
 
 .active {
