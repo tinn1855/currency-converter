@@ -13,7 +13,10 @@ let filteredCurrency = {};
 let currentPage = 1;
 const rowsPerPage = 20;
 
-const fetchCurrency = async (baseCurrency = "USD") => {
+const fetchCurrency = async (
+  baseCurrency = "USD",
+  preserveSelectValues = false
+) => {
   try {
     const res = await fetch(`${API_URL}/${KEY}/latest/${baseCurrency}`);
     const data = await res.json();
@@ -23,7 +26,7 @@ const fetchCurrency = async (baseCurrency = "USD") => {
     }
     currencyRate = data.conversion_rates;
     renderCurrencyTable();
-    renderOptionSelect();
+    renderOptionSelect(preserveSelectValues);
     renderPagination();
   } catch (error) {
     console.error("Error fetching currency data:", error);
@@ -40,11 +43,75 @@ const debounce = (func, delay) => {
 };
 
 // Định dạng tiền tệ
-const formatCurrency = (value) =>
-  Number(value).toLocaleString("en-US", {
+const formatCurrency = (value, options = {}) => {
+  if (value === null || value === undefined || value === "") {
+    return "0.00";
+  }
+
+  const numValue = Number(value);
+
+  if (isNaN(numValue)) {
+    return "0.00";
+  }
+
+  const defaultOptions = {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 6, // Tăng lên để hiển thị tỷ giá chính xác hơn
+    ...options,
+  };
+
+  if (Math.abs(numValue) < 0.01 && numValue !== 0) {
+    return numValue.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 8,
+      ...options,
+    });
+  }
+
+  if (Math.abs(numValue) >= 1000000) {
+    return numValue.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+      ...options,
+    });
+  }
+
+  return numValue.toLocaleString("en-US", defaultOptions);
+};
+
+// Định dạng tỷ giá - tối ưu cho hiển thị exchange rate
+const formatExchangeRate = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return "0.00";
+  }
+
+  const numValue = Number(value);
+  if (isNaN(numValue)) {
+    return "0.00";
+  }
+
+  // Số rất nhỏ: hiển thị nhiều chữ số
+  if (numValue < 0.001) {
+    return numValue.toLocaleString("en-US", {
+      minimumFractionDigits: 6,
+      maximumFractionDigits: 8,
+    });
+  }
+
+  // Số nhỏ: hiển thị 4-6 chữ số
+  if (numValue < 1) {
+    return numValue.toLocaleString("en-US", {
+      minimumFractionDigits: 4,
+      maximumFractionDigits: 6,
+    });
+  }
+
+  // Số bình thường: 2-4 chữ số
+  return numValue.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
   });
+};
 
 // So sánh và đổi tiền
 const compareCurrencies = async (from, to, amount) => {
@@ -59,11 +126,47 @@ const compareCurrencies = async (from, to, amount) => {
       <h3>${formatCurrency(amount)} ${from} = <span>${formatCurrency(
       data.conversion_result
     )} ${to}</span></h3>
-      <p>Tỷ giá: 1 ${from} = ${formatCurrency(data.conversion_rate)} ${to}</p>
+      <p>Tỷ giá: 1 ${from} = ${formatExchangeRate(
+      data.conversion_rate
+    )} ${to}</p>
     `;
   } catch (error) {
     console.error("Error comparing currencies:", error);
   }
+};
+
+const swapCurrencies = () => {
+  const fromCurrency = fromValue.value;
+  const toCurrency = toValue.value;
+
+  // Check if both currencies are selected
+  if (!fromCurrency || !toCurrency) {
+    console.warn("Both currencies must be selected to swap");
+    return;
+  }
+
+  // Check if they are the same
+  if (fromCurrency === toCurrency) {
+    console.warn("Cannot swap identical currencies");
+    return;
+  }
+
+  // Add visual feedback
+  const swapBtn = document.getElementById("swapBtn");
+  swapBtn.style.transform = "rotate(180deg)";
+
+  // Swap the values
+  fromValue.value = toCurrency;
+  toValue.value = fromCurrency;
+
+  // Reset button rotation after a short delay
+  setTimeout(() => {
+    swapBtn.style.transform = "";
+  }, 300);
+
+  // Update the conversion with current amount - this will handle the new currency pair
+  const currentAmount = amountValue.value || 1;
+  compareCurrencies(fromValue.value, toValue.value, currentAmount);
 };
 
 function getPageData() {
@@ -91,9 +194,9 @@ const searchCurrency = debounce((keyword) => {
     );
   }
 
-  if (Object.keys(filteredCurrency).length === 0) {
+  // Check if search term exists but no results found
+  if (searchTerm && Object.keys(filteredCurrency).length === 0) {
     tableBody.innerHTML = "<tr><td colspan='6'>No results found</td></tr>";
-    convertedResult.innerHTML = "";
     document.getElementById("pagination").innerHTML = "";
     return;
   }
@@ -188,7 +291,11 @@ const goToPage = (page, totalPages) => {
 };
 
 // Render select option
-const renderOptionSelect = () => {
+const renderOptionSelect = (preserveValues = false) => {
+  // Lưu giá trị hiện tại nếu cần preserve
+  const currentFromValue = preserveValues ? fromValue.value : null;
+  const currentToValue = preserveValues ? toValue.value : null;
+
   fromValue.innerHTML = "";
   toValue.innerHTML = "";
 
@@ -200,25 +307,33 @@ const renderOptionSelect = () => {
     toValue.appendChild(option.cloneNode(true));
   });
 
-  fromValue.value = "USD";
-  toValue.value = "VND";
+  // Khôi phục giá trị cũ hoặc set mặc định
+  if (preserveValues && currentFromValue && currentToValue) {
+    fromValue.value = currentFromValue;
+    toValue.value = currentToValue;
+  } else {
+    fromValue.value = "USD";
+    toValue.value = "VND";
+  }
 };
 
-// Render bảng tiền tệ (không phân trang)
+// Render bảng tiền tệ
 const renderCurrencyTable = () => {
   tableBody.innerHTML = "";
 
   getPageData().forEach(([code, rate], index) => {
     const row = document.createElement("tr");
+    // Calculate correct index based on current page
+    const actualIndex = (currentPage - 1) * rowsPerPage + index + 1;
 
     row.innerHTML = `
-      <td>${index + 1}</td>
-      <td>  ${code}</td>
-      <td> <img src="${
+      <td>${actualIndex}</td>
+      <td>${code}</td>
+      <td><img src="${
         FLAG_CURRENCY[code.toLowerCase()]
-      }" alt="${code} flag" width="24" /> ${CURRENCY_NAME[code]}</td>
+      }" alt="${code} flag" width="24" /> ${CURRENCY_NAME[code] || code}</td>
       <td>-</td>
-      <td>${rate}</td>
+      <td>${formatExchangeRate(rate)}</td>
       <td>-</td>
     `;
     tableBody.appendChild(row);
@@ -239,6 +354,11 @@ document.addEventListener("DOMContentLoaded", () => {
     searchCurrency(e.target.value);
   });
 
+  document.getElementById("swapBtn").addEventListener("click", (e) => {
+    e.preventDefault();
+    swapCurrencies();
+  });
+
   amountValue.addEventListener(
     "input",
     debounce(() => {
@@ -246,12 +366,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 1000)
   );
 
-  [fromValue, toValue].forEach((el) =>
-    el.addEventListener(
-      "change",
-      debounce(() => {
-        compareCurrencies(fromValue.value, toValue.value, amountValue.value);
-      }, 500)
-    )
+  fromValue.addEventListener(
+    "change",
+    debounce(() => {
+      fetchCurrency(fromValue.value, true);
+      compareCurrencies(fromValue.value, toValue.value, amountValue.value);
+    }, 500)
+  );
+
+  toValue.addEventListener(
+    "change",
+    debounce(() => {
+      compareCurrencies(fromValue.value, toValue.value, amountValue.value);
+    }, 500)
   );
 });
