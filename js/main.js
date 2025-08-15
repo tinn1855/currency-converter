@@ -8,7 +8,9 @@ const convertedResult = document.getElementById("converted-result");
 
 let currencyRate = {};
 
-// Lấy dữ liệu tỷ giá
+let currentPage = 1;
+const rowsPerPage = 20;
+
 const fetchCurrency = async (baseCurrency = "USD") => {
   try {
     const res = await fetch(`${API_URL}/${KEY}/latest/${baseCurrency}`);
@@ -20,6 +22,7 @@ const fetchCurrency = async (baseCurrency = "USD") => {
     currencyRate = data.conversion_rates;
     renderCurrencyTable();
     renderOptionSelect();
+    renderPagination();
   } catch (error) {
     console.error("Error fetching currency data:", error);
   }
@@ -52,6 +55,92 @@ const compareCurrencies = async (from, to, amount) => {
   }
 };
 
+function getPageData() {
+  const start = (currentPage - 1) * rowsPerPage;
+  const end = start + rowsPerPage;
+  return Object.entries(currencyRate).slice(start, end);
+}
+
+// render pagination
+function renderPagination() {
+  const paginationEl = document.getElementById("pagination");
+  paginationEl.innerHTML = "";
+  const totalPages = Math.ceil(Object.keys(currencyRate).length / rowsPerPage);
+  console.log("Total pages:", totalPages);
+
+  const prevBtn = document.createElement("button");
+  prevBtn.textContent = "Previous";
+  prevBtn.classList.add("btn");
+  prevBtn.disabled = currentPage === 1;
+  prevBtn.addEventListener("click", () => {
+    goToPage(currentPage - 1, totalPages);
+  });
+  paginationEl.appendChild(prevBtn);
+
+  const addPageButton = (page) => {
+    const btn = document.createElement("button");
+    btn.textContent = page;
+    btn.classList.add("btn");
+    if (page === currentPage) {
+      btn.classList.add("active");
+    }
+    btn.addEventListener("click", () => {
+      goToPage(page, totalPages);
+    });
+    paginationEl.appendChild(btn);
+  };
+
+  addPageButton(1);
+
+  if (currentPage > 3) {
+    const dots = document.createElement("span");
+    dots.textContent = "...";
+    paginationEl.appendChild(dots);
+  }
+
+  let startPage = Math.max(2, currentPage - 1);
+  let endPage = Math.min(totalPages - 1, currentPage + 1);
+
+  for (let i = startPage; i <= endPage; i++) {
+    addPageButton(i);
+  }
+
+  if (currentPage < totalPages - 2) {
+    const dots = document.createElement("span");
+    dots.textContent = "...";
+    paginationEl.appendChild(dots);
+  }
+
+  if (totalPages > 1) {
+    addPageButton(totalPages);
+  }
+
+  const nextBtn = document.createElement("button");
+  nextBtn.textContent = "Next";
+  nextBtn.classList.add("btn");
+  nextBtn.disabled = currentPage === totalPages;
+  nextBtn.addEventListener("click", () => {
+    goToPage(currentPage + 1, totalPages);
+  });
+  paginationEl.appendChild(nextBtn);
+}
+
+const goToPage = (page, totalPages) => {
+  if (page < 1 || page > totalPages) return;
+  currentPage = page;
+
+  const pageParam = new URL(window.location);
+  // pageParam.searchParams.set("page", page);
+  if (currentPage === 1) {
+    pageParam.searchParams.delete("page");
+  } else {
+    pageParam.searchParams.set("page", currentPage);
+  }
+  window.history.pushState({}, "", pageParam);
+  renderCurrencyTable();
+  renderPagination();
+};
+
 // Render select option
 const renderOptionSelect = () => {
   fromValue.innerHTML = "";
@@ -72,7 +161,7 @@ const renderOptionSelect = () => {
 // Render bảng tiền tệ (không phân trang)
 const renderCurrencyTable = () => {
   tableBody.innerHTML = "";
-  const entries = Object.entries(currencyRate);
+  const entries = getPageData();
 
   entries.forEach(([code, rate], index) => {
     const row = document.createElement("tr");
@@ -99,6 +188,11 @@ const debounce = (func, delay) => {
 
 // Sự kiện DOMContentLoaded
 document.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(window.location.search);
+  const pageFromURL = parseInt(params.get("page"));
+  if (!isNaN(pageFromURL) && pageFromURL > 0) {
+    currentPage = pageFromURL;
+  }
   fetchCurrency("USD");
   compareCurrencies("USD", "VND", 1);
 
