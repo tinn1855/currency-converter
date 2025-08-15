@@ -1,4 +1,6 @@
 import { API_URL, KEY } from "./config.js";
+import { FLAG_CURRENCY } from "../mockAPI/flag.js";
+import { CURRENCY_NAME } from "../mockAPI/currency-name.js";
 
 const fromValue = document.getElementById("fromValue");
 const toValue = document.getElementById("toValue");
@@ -66,7 +68,6 @@ function renderPagination() {
   const paginationEl = document.getElementById("pagination");
   paginationEl.innerHTML = "";
   const totalPages = Math.ceil(Object.keys(currencyRate).length / rowsPerPage);
-  console.log("Total pages:", totalPages);
 
   const prevBtn = document.createElement("button");
   prevBtn.textContent = "Previous";
@@ -165,10 +166,13 @@ const renderCurrencyTable = () => {
 
   entries.forEach(([code, rate], index) => {
     const row = document.createElement("tr");
+
     row.innerHTML = `
       <td>${index + 1}</td>
-      <td>${code}</td>
-      <td>-</td>
+      <td>  ${code}</td>
+      <td> <img src="${
+        FLAG_CURRENCY[code.toLowerCase()]
+      }" alt="${code} flag" width="24" /> ${CURRENCY_NAME[code]}</td>
       <td>-</td>
       <td>${rate}</td>
       <td>-</td>
