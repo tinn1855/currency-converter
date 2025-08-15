@@ -9,7 +9,7 @@ const tableBody = document.querySelector(".table-currency tbody");
 const convertedResult = document.getElementById("converted-result");
 
 let currencyRate = {};
-let filteredCurrency = {};
+let filteredCurrency = null; // null = no filter, {} = empty results, object = filtered data
 let currentPage = 1;
 const rowsPerPage = 20;
 
@@ -25,9 +25,17 @@ const fetchCurrency = async (
       throw new Error(data["error-type"] || "Unknown API error");
     }
     currencyRate = data.conversion_rates;
-    renderCurrencyTable();
+
+    // If there's an active search, re-apply it with new currency data but preserve page
+    const searchInput = document.getElementById("search-input");
+    if (searchInput && searchInput.value.trim()) {
+      searchCurrency(searchInput.value, false); // Don't reset page
+    } else {
+      renderCurrencyTable();
+      renderPagination();
+    }
+
     renderOptionSelect(preserveSelectValues);
-    renderPagination();
   } catch (error) {
     console.error("Error fetching currency data:", error);
   }
@@ -172,36 +180,101 @@ const swapCurrencies = () => {
 function getPageData() {
   const start = (currentPage - 1) * rowsPerPage;
   const end = start + rowsPerPage;
-  const data = Object.entries(filteredCurrency).length
-    ? Object.entries(filteredCurrency)
-    : Object.entries(currencyRate);
-  return data.slice(start, end);
-}
 
-const searchCurrency = debounce((keyword) => {
-  const searchTerm = keyword.trim().toLowerCase();
-  if (!searchTerm) {
-    filteredCurrency = {};
-  } else {
-    filteredCurrency = Object.fromEntries(
-      Object.entries(currencyRate).filter(([code]) => {
-        const name = CURRENCY_NAME[code] || "";
-        return (
-          code.toLowerCase().includes(searchTerm) ||
-          name.toLowerCase().includes(searchTerm)
-        );
-      })
-    );
+  // If no filter applied, use all currency data
+  if (filteredCurrency === null) {
+    return Object.entries(currencyRate).slice(start, end);
   }
 
-  // Check if search term exists but no results found
-  if (searchTerm && Object.keys(filteredCurrency).length === 0) {
+  // If filter applied, use filtered data (could be empty object)
+  return Object.entries(filteredCurrency).slice(start, end);
+}
+
+// Helper function to validate and adjust current page
+const validateCurrentPage = () => {
+  let totalItems;
+  if (filteredCurrency === null) {
+    totalItems = Object.keys(currencyRate).length;
+  } else {
+    totalItems = Object.keys(filteredCurrency).length;
+  }
+
+  const totalPages = Math.ceil(totalItems / rowsPerPage);
+
+  // If current page exceeds total pages, adjust to last page
+  if (currentPage > totalPages && totalPages > 0) {
+    currentPage = totalPages;
+  } else if (currentPage < 1) {
+    currentPage = 1;
+  }
+};
+
+// Update URL with current page and search params
+const updateUrl = (searchTerm = null) => {
+  const url = new URL(window.location);
+
+  // Update page parameter
+  if (currentPage === 1) {
+    url.searchParams.delete("page");
+  } else {
+    url.searchParams.set("page", currentPage);
+  }
+
+  // Update search parameter
+  if (searchTerm && searchTerm.trim()) {
+    url.searchParams.set("search", encodeURIComponent(searchTerm.trim()));
+  } else {
+    url.searchParams.delete("search");
+  }
+
+  window.history.pushState({}, "", url);
+};
+
+const searchCurrency = debounce((keyword, resetPage = true) => {
+  const searchTerm = keyword.trim().toLowerCase();
+  const originalKeyword = keyword.trim(); // Keep original for URL
+
+  console.log("searchCurrency called:", { keyword, resetPage, currentPage });
+
+  if (!searchTerm) {
+    // Clear filter
+    filteredCurrency = null;
+    if (resetPage) {
+      currentPage = 1;
+      updateUrl(); // Clear search param from URL
+    }
+    renderCurrencyTable();
+    renderPagination();
+    return;
+  }
+
+  // Apply filter
+  filteredCurrency = Object.fromEntries(
+    Object.entries(currencyRate).filter(([code]) => {
+      const name = CURRENCY_NAME[code] || "";
+      return (
+        code.toLowerCase().includes(searchTerm) ||
+        name.toLowerCase().includes(searchTerm)
+      );
+    })
+  );
+
+  // Reset to first page only if resetPage is true
+  if (resetPage) {
+    currentPage = 1;
+  } else {
+    // Validate current page doesn't exceed available pages
+    validateCurrentPage();
+  }
+  updateUrl(originalKeyword);
+
+  // Check if no results found
+  if (Object.keys(filteredCurrency).length === 0) {
     tableBody.innerHTML = "<tr><td colspan='6'>No results found</td></tr>";
     document.getElementById("pagination").innerHTML = "";
     return;
   }
 
-  currentPage = 1;
   renderCurrencyTable();
   renderPagination();
 }, 300);
@@ -211,11 +284,22 @@ function renderPagination() {
   const paginationEl = document.getElementById("pagination");
   paginationEl.innerHTML = "";
 
-  const totalItems = Object.entries(filteredCurrency).length
-    ? Object.entries(filteredCurrency).length
-    : Object.keys(currencyRate).length;
+  // Calculate total items based on current state
+  let totalItems;
+  if (filteredCurrency === null) {
+    // No filter applied
+    totalItems = Object.keys(currencyRate).length;
+  } else {
+    // Filter applied
+    totalItems = Object.keys(filteredCurrency).length;
+  }
 
   const totalPages = Math.ceil(totalItems / rowsPerPage);
+
+  // Don't show pagination if no items or only one page
+  if (totalItems === 0 || totalPages <= 1) {
+    return;
+  }
 
   const prevBtn = document.createElement("button");
   prevBtn.textContent = "Previous";
@@ -278,14 +362,11 @@ const goToPage = (page, totalPages) => {
   if (page < 1 || page > totalPages) return;
   currentPage = page;
 
-  const pageParam = new URL(window.location);
-  // pageParam.searchParams.set("page", page);
-  if (currentPage === 1) {
-    pageParam.searchParams.delete("page");
-  } else {
-    pageParam.searchParams.set("page", currentPage);
-  }
-  window.history.pushState({}, "", pageParam);
+  // Get current search term to preserve in URL
+  const searchInput = document.getElementById("search-input");
+  const currentSearch = searchInput ? searchInput.value.trim() : "";
+  updateUrl(currentSearch);
+
   renderCurrencyTable();
   renderPagination();
 };
@@ -344,14 +425,33 @@ const renderCurrencyTable = () => {
 document.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
   const pageFromURL = parseInt(params.get("page"));
+  const searchFromURL = params.get("search");
+
+  // Set current page from URL
   if (!isNaN(pageFromURL) && pageFromURL > 0) {
     currentPage = pageFromURL;
+  } else {
+    currentPage = 1;
   }
+
+  // Initialize currency data
   fetchCurrency("USD");
   compareCurrencies("USD", "VND", 1);
 
+  // Restore search from URL if exists
+  const searchInput = document.getElementById("search-input");
+  if (searchFromURL && searchInput) {
+    const decodedSearch = decodeURIComponent(searchFromURL);
+    searchInput.value = decodedSearch;
+
+    // Trigger search after currency data is loaded but preserve current page
+    setTimeout(() => {
+      searchCurrency(decodedSearch, false); // Don't reset page
+    }, 500); // Wait for fetchCurrency to complete
+  }
+
   document.getElementById("search-input").addEventListener("input", (e) => {
-    searchCurrency(e.target.value);
+    searchCurrency(e.target.value, true); // Reset page when user types
   });
 
   document.getElementById("swapBtn").addEventListener("click", (e) => {
