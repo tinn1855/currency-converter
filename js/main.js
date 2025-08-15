@@ -9,7 +9,7 @@ const tableBody = document.querySelector(".table-currency tbody");
 const convertedResult = document.getElementById("converted-result");
 
 let currencyRate = {};
-
+let filteredCurrency = {};
 let currentPage = 1;
 const rowsPerPage = 20;
 
@@ -28,6 +28,15 @@ const fetchCurrency = async (baseCurrency = "USD") => {
   } catch (error) {
     console.error("Error fetching currency data:", error);
   }
+};
+
+// Debounce
+const debounce = (func, delay) => {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => func(...args), delay);
+  };
 };
 
 // Định dạng tiền tệ
@@ -60,14 +69,41 @@ const compareCurrencies = async (from, to, amount) => {
 function getPageData() {
   const start = (currentPage - 1) * rowsPerPage;
   const end = start + rowsPerPage;
-  return Object.entries(currencyRate).slice(start, end);
+  const data = Object.entries(filteredCurrency).length
+    ? Object.entries(filteredCurrency)
+    : Object.entries(currencyRate);
+  return data.slice(start, end);
 }
+
+const searchCurrency = debounce((keyword) => {
+  if (!keyword.trim()) {
+    filteredCurrency = {};
+  } else {
+    filteredCurrency = Object.fromEntries(
+      Object.entries(currencyRate).filter(([code]) => {
+        const name = CURRENCY_NAME[code] || "";
+        return (
+          code.toLowerCase().includes(keyword.toLowerCase()) ||
+          name.toLowerCase().includes(keyword.toLowerCase())
+        );
+      })
+    );
+  }
+  currentPage = 1; // Reset to first page on search
+  renderCurrencyTable();
+  renderPagination();
+}, 300);
 
 // render pagination
 function renderPagination() {
   const paginationEl = document.getElementById("pagination");
   paginationEl.innerHTML = "";
-  const totalPages = Math.ceil(Object.keys(currencyRate).length / rowsPerPage);
+
+  const totalItems = Object.entries(filteredCurrency).length
+    ? Object.entries(filteredCurrency).length
+    : Object.keys(currencyRate).length;
+
+  const totalPages = Math.ceil(totalItems / rowsPerPage);
 
   const prevBtn = document.createElement("button");
   prevBtn.textContent = "Previous";
@@ -162,9 +198,8 @@ const renderOptionSelect = () => {
 // Render bảng tiền tệ (không phân trang)
 const renderCurrencyTable = () => {
   tableBody.innerHTML = "";
-  const entries = getPageData();
 
-  entries.forEach(([code, rate], index) => {
+  getPageData().forEach(([code, rate], index) => {
     const row = document.createElement("tr");
 
     row.innerHTML = `
@@ -181,15 +216,6 @@ const renderCurrencyTable = () => {
   });
 };
 
-// Debounce
-const debounce = (func, delay) => {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => func(...args), delay);
-  };
-};
-
 // Sự kiện DOMContentLoaded
 document.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
@@ -199,6 +225,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   fetchCurrency("USD");
   compareCurrencies("USD", "VND", 1);
+
+  document.getElementById("search-input").addEventListener("input", (e) => {
+    searchCurrency(e.target.value);
+  });
 
   amountValue.addEventListener(
     "input",
