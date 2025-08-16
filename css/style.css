@@ -255,4 +255,10 @@ tbody tr:hover {
   padding: 32px 0px;
 }
 
+.currency-flag {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+}
+
 /* UTILITY_CLASSES  */

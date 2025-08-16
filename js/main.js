@@ -410,9 +410,11 @@ const renderCurrencyTable = () => {
     row.innerHTML = `
       <td>${actualIndex}</td>
       <td>${code}</td>
-      <td><img src="${
+      <td class="currency-flag"><img src="${
         FLAG_CURRENCY[code.toLowerCase()]
-      }" alt="${code} flag" width="24" /> ${CURRENCY_NAME[code] || code}</td>
+      }" alt="${code} flag" width="24"  onerror="this.src='images/no-flag.png'"  /> ${
+      CURRENCY_NAME[code] || code
+    }</td>
       <td>-</td>
       <td>${formatExchangeRate(rate)}</td>
       <td>-</td>
