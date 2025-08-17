@@ -246,6 +246,9 @@ tbody tr:hover {
 
 .search-input {
   width: 100%;
+  border: none;
+  outline: none;
+  flex: 1;
 }
 
 .pagination {
@@ -261,4 +264,49 @@ tbody tr:hover {
   align-items: center;
 }
 
-/* UTILITY_CLASSES  */
+.search-container {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--dark-gray);
+  border-radius: 5px;
+  padding: 3px 16px;
+}
+
+@media screen and (max-width: 768px) {
+  table {
+    overflow-x: hidden;
+  }
+  .container {
+    padding: 0 10px;
+  }
+
+  .convert {
+    grid-template-columns: 1fr;
+  }
+
+  .form-select {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .form-select label {
+    margin-bottom: 5px;
+  }
+
+  .form-select select {
+    width: 100%;
+  }
+
+  .popular-list {
+    flex-direction: column;
+  }
+
+  .section-search {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-input {
+    margin-bottom: 10px;
+  }
+}

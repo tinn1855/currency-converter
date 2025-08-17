@@ -232,23 +232,19 @@ const updateUrl = (searchTerm = null) => {
 
 const searchCurrency = debounce((keyword, resetPage = true) => {
   const searchTerm = keyword.trim().toLowerCase();
-  const originalKeyword = keyword.trim(); // Keep original for URL
-
-  console.log("searchCurrency called:", { keyword, resetPage, currentPage });
+  const originalKeyword = keyword.trim();
 
   if (!searchTerm) {
-    // Clear filter
     filteredCurrency = null;
     if (resetPage) {
       currentPage = 1;
-      updateUrl(); // Clear search param from URL
+      updateUrl();
     }
     renderCurrencyTable();
     renderPagination();
     return;
   }
 
-  // Apply filter
   filteredCurrency = Object.fromEntries(
     Object.entries(currencyRate).filter(([code]) => {
       const name = CURRENCY_NAME[code] || "";
@@ -259,16 +255,13 @@ const searchCurrency = debounce((keyword, resetPage = true) => {
     })
   );
 
-  // Reset to first page only if resetPage is true
   if (resetPage) {
     currentPage = 1;
   } else {
-    // Validate current page doesn't exceed available pages
     validateCurrentPage();
   }
   updateUrl(originalKeyword);
 
-  // Check if no results found
   if (Object.keys(filteredCurrency).length === 0) {
     tableBody.innerHTML = "<tr><td colspan='6'>No results found</td></tr>";
     document.getElementById("pagination").innerHTML = "";
@@ -284,19 +277,15 @@ function renderPagination() {
   const paginationEl = document.getElementById("pagination");
   paginationEl.innerHTML = "";
 
-  // Calculate total items based on current state
   let totalItems;
   if (filteredCurrency === null) {
-    // No filter applied
     totalItems = Object.keys(currencyRate).length;
   } else {
-    // Filter applied
     totalItems = Object.keys(filteredCurrency).length;
   }
 
   const totalPages = Math.ceil(totalItems / rowsPerPage);
 
-  // Don't show pagination if no items or only one page
   if (totalItems === 0 || totalPages <= 1) {
     return;
   }
