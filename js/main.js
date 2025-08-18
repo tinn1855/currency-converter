@@ -397,8 +397,8 @@ const renderCurrencyTable = () => {
     const actualIndex = (currentPage - 1) * rowsPerPage + index + 1;
 
     row.innerHTML = `
-      <td>${actualIndex}</td>
-      <td>${code}</td>
+      <td >${actualIndex}</td>
+      <td >${code}</td>
       <td class="currency-flag"><img src="${
         FLAG_CURRENCY[code.toLowerCase()]
       }" alt="${code} flag" width="24"  onerror="this.src='images/no-flag.png'"  /> ${

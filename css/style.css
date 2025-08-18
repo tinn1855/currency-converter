@@ -133,6 +133,7 @@ table thead {
 table th,
 table td {
   padding: 10px;
+  /* white-space: nowrap; */
 }
 
 tbody tr:hover {
@@ -272,9 +273,19 @@ tbody tr:hover {
   padding: 3px 16px;
 }
 
+.table-description {
+  text-align: center;
+  font-size: 14px;
+}
+
 @media screen and (max-width: 768px) {
   table {
-    overflow-x: hidden;
+    display: block;
+    overflow-x: auto;
+    /* min-width: 500px; */
+  }
+  table thead:nth-child(4) {
+    display: none;
   }
   .container {
     padding: 0 10px;
@@ -306,7 +317,13 @@ tbody tr:hover {
     align-items: stretch;
   }
 
-  .search-input {
-    margin-bottom: 10px;
+  .sticky-col {
+    position: sticky;
+    left: 0;
+    background-color: white;
+    z-index: 1;
+  }
+  .bg-black {
+    background-color: var(--primary-color);
   }
 }
